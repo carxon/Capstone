@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Photo-Collection>
+    <record>
+       <RecordNumber/Title>data</RecordNumber/Title>
+       <Photo>Yes</Photo>
+       <Description>data</Description>
+       <Title>data</Title>
+       <Year>data</Year>
+       <NumberPhotos>data</NumberPhotos>
+       <FileName>data</FileName>
+    </record>
+</Photo-Collection>
