@@ -1,16 +1,15 @@
-//cd Capstone\my-react-app
+//cd capstone\capstone-project 
 //npm start
 import './App.css';
 import { createWorker } from 'tesseract.js';
 import { useState } from 'react';
-//import * as fsModule from 'fs';
+import { PDFDocument, PDFPage, save } from 'pdf-lib';
+import { jsPDF } from "jspdf";
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-import * as pdfjsLib from 'pdfjs-dist/webpack.mjs';
-
-const fs = require('fs');
-
+import * as pdfjsLib from 'pdfjs-dist/webpack.mjs'; 
 
 //-----------------
+
 const worker = await createWorker('eng',1, {
   logger: m => console.log(m)});
 
@@ -19,11 +18,7 @@ function App() {
   const [imagePath, setImagePath] = useState("");
   const [text, setText] = useState("");
   const [numPages, setNumPages] = useState(null);
-  const [bool, setBool] = useState(true);
   //const [pageNumber, setPageNumber] = useState(1);
-  const [,, imagesPath] = process.argv;
-const image = path.resolve(__dirname, (imagesPath || '../../tests/assets/images/cosmic.png'));
-const path = require('path');  
 
 //TO DO:
   const handleChange = async (event) => {
@@ -31,17 +26,20 @@ const path = require('path');
   //return: images -> an array of images encoded in base64 
     const file = event.target.files[0];
     console.log("event target file loaded")
+    console.log(file)
     GlobalWorkerOptions.workerSrc = "pdfjs-dist/build/pdf.worker.entry";
     // Load PDF and get the number of pages
       const pdf = await getDocument({ data: await readFileData(file) }).promise;
+      const doob = await file.arrayBuffer();
+      const srcDoc = await PDFDocument.load(doob);
+      console.log(srcDoc);
       setNumPages(pdf.numPages);
 
     // Convert each page to an image
-
     const images = [];
-    let intervalID = setInterval(ConsoleImgLogger, 2000)
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
+    const pdfDoc = await PDFDocument.create();
+    for (let i = 0; i < pdf.numPages; i++) {
+      const page = await pdf.getPage(i+1);
       const viewport = page.getViewport({ scale: 2 }); // Adjust scale as needed
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
@@ -54,21 +52,112 @@ const path = require('path');
     }
 
     // Now 'images' contains data URLs of all pages
-    clearInterval(intervalID)
-    console.log(images);
+    // Now to turn the image back into a pdf
+    //console.log(images);
     console.log("PDF is now an image!");
-    setImagePath(images[0]);
-    return images;
-  }
+    
+    //For one page pdf
+    /*let newPdf;
+    console.log("creating pdf");
+    const res = await worker.recognize(images[0],{pdfTitle: "Example PDF"},{pdf: true});
+    console.log(res);
+    newPdf = res.data.pdf;
+    setImagePath(newPdf)
+    console.log("pdf created");
+    console.log(newPdf);
+    await worker.terminate();
+    console.log("Worker terminated") 
+    */
+    //const mergedDocs = await PDFDocument.create();
+    let newPdf;
+    for (let i = 0; i < images.length; i++) {
+      console.log("creating pdf "+i);
+      console.log(images[i])
+      const res = await worker.recognize(images[i],{pdfTitle: "Example PDF"},{pdf: true});
+      console.log(res);
+      newPdf = res.data.pdf;
+      setImagePath(newPdf)
+      
 
+      console.log(newPdf);
+
+
+
+
+        console.log("gorpin");
+        const filePDF=new File([newPdf],'myPDF.pdf',{type: "text/pdf"});
+        console.log(filePDF)
+        const donorPdfBytes = await filePDF.arrayBuffer();  
+        console.log(donorPdfBytes)
+        const srcDoc = await PDFDocument.load(donorPdfBytes)
+        const [idkPdf] = await pdfDoc.copyPages(srcDoc, [0]);
+        pdfDoc.addPage(idkPdf);
+        console.log(idkPdf);
+        console.log("Type: "+typeof(idkPdf));
+
+        console.log(i+" pdf created");
+      
+    }
+    await worker.terminate();
+    console.log("Worker terminated") 
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+    const byteArray = await pdfDoc.save();
+    console.log(byteArray)
+    const blob = new  Blob([byteArray], { type: 'application/pdf' });
+    const url = URL.createObjectURL( blob );
+    const filename = 'tesseract-ocr-result.pdf';
+    console.log(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+  }
+    /*
+    //failed code snippets
+    for (let i = 0; i < images.length; i++) {
+      let newPdf;
+      console.log("creating pdf "+i);
+      const resPDF = await worker.recognize(images[i],{pdfTitle: "Example PDF"},{pdf: true});
+      newPdf = resPDF.data.pdf;
+      console.log(resPDF)
+
+      var arrayBuffer;
+var fileReader = new FileReader();
+fileReader.onload = function(event) {
+    arrayBuffer = event.target.result;
+};
+fileReader.readAsArrayBuffer(blob);
+      const newPdfBytes = arrayBuffer(newPdf)
+      console.log(newPdfBytes)
+      console.log(newPdf);
+      console.log("pdf created");
+      await worker.terminate();
+      console.log("Worker terminated")
+  } */
+  }
+  //downloading the pdf
   const handleClick = async () => {
     console.log("click");
-    //setImagePath(imagePath);
-    const { data: { text, pdf } } = await worker.recognize(image, {pdfTitle: "Example PDF"}, {pdf: true});      
-    console.log("text is"+text);
-      setText(text);
-      //fs.writeFileSync('tesseract-ocr-result.pdf', Buffer.from(pdf));
-      await worker.terminate();
+    const filename = 'tesseract-ocr-result.pdf';
+    const blob = new Blob([new Uint8Array(imagePath)], { type: 'application/pdf' });
+    if (navigator.msSaveBlob) {
+      console.log("greep")
+      navigator.msSaveBlob(blob, filename);
+    } else {
+      console.log("gorp")
+      console.log(blob)
+      const link = document.createElement('a');
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
   }
    
 
@@ -84,37 +173,26 @@ const path = require('path');
       };
     });
   };
-
-  const ConsoleImgLogger = () => {
-    if (bool == true) {
-      console.log("Converting PDF.");
-      setBool(false);
-    }
-    else {
-      console.log("Converting PDF...")
-      setBool(true);
-    }
-  }
  
   return (
     <div className="App">
       <main className="App-main">
         <h3>Actual image uploaded</h3>
-        <p>{imagePath}</p>
-        <img src={imagePath}></img>
+        <p>{text}</p>
+        <img src={text}></img>
         <embed
-           src={imagePath} className="App-image" alt="logo"/>
+           src={text} className="App-image" alt="logo"/>
         
           <h3>Extracted text</h3>
         <div className="text-box">
-          <p> {text} </p>
+          <script>  </script>
         </div>
         <input type="file" onChange={handleChange} />
-        <button onClick={handleClick} style={{height:50}}> convert to text</button>
+        <button onClick={handleClick} style={{height:50}}>Download PDF</button>
       </main>
     </div>
   );
-}
+} 
  
 export default App
 
@@ -123,5 +201,6 @@ https://stackoverflow.com/questions/61637191/how-to-convert-pdf-to-image-in-reac
 https://github.com/wojtekmaj/react-pdf?tab=readme-ov-file
 https://github.com/ScientaNL/pdf-extractor/blob/d7775ab76849bc5da7fc7a36175c6d446d383250/lib/PdfExtractor.js#L47
 https://stackoverflow.com/questions/62744470/turn-pdf-into-array-of-pngs-using-javascript-with-pdf-js
+https://github.com/naptha/tesseract.js/blob/master/examples/browser/download-pdf.html
 
 */
